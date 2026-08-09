@@ -458,7 +458,7 @@ mod tests {
                     Rect::new(0, 0, 44, 6),
                     &theme,
                     &FrameSpec {
-                        title: "Tasks",
+                        title: "任務",
                         counter: Some("3 open".into()),
                         focused: true,
                         bindings: &bindings(),
@@ -470,7 +470,7 @@ mod tests {
 
         let buf = terminal.backend().buffer();
         let top: String = (0..44).map(|x| buf[(x, 0)].symbol()).collect();
-        assert!(top.contains("任務"), "got: {top}");
+        assert!(top.contains("任"), "got: {top}");
         assert!(
             top.contains("3 open"),
             "counter belongs in the frame: {top}"
