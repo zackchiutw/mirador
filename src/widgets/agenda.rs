@@ -478,7 +478,7 @@ fn read_loop(
 
 impl Panel for AgendaPanel {
     fn title(&self) -> String {
-        "Agenda".to_string()
+        "行程".to_string()
     }
 
     fn counter(&self) -> Option<String> {

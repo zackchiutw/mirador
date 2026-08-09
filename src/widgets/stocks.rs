@@ -673,7 +673,7 @@ fn update(
 
 impl Panel for StocksPanel {
     fn title(&self) -> String {
-        "Markets".to_string()
+        "股票".to_string()
     }
 
     fn counter(&self) -> Option<String> {

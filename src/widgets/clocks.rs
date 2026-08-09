@@ -349,7 +349,7 @@ fn relative_offset(primary: jiff::tz::Offset, other: jiff::tz::Offset) -> String
 
 impl Panel for ClocksPanel {
     fn title(&self) -> String {
-        "Clock".to_string()
+        "世界時鐘".to_string()
     }
 
     fn counter(&self) -> Option<String> {

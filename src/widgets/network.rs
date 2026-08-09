@@ -190,7 +190,7 @@ const BINDINGS: &[Binding] = &[];
 
 impl Panel for NetworkPanel {
     fn title(&self) -> String {
-        "Network".to_string()
+        "網路".to_string()
     }
 
     fn counter(&self) -> Option<String> {

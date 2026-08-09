@@ -267,7 +267,7 @@ impl NewsPanel {
 
 impl Panel for NewsPanel {
     fn title(&self) -> String {
-        "News".into()
+        "新聞".into()
     }
 
     /// Deliberately `None`.

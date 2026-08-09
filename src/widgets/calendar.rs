@@ -294,7 +294,7 @@ fn grid_shape(area: Rect, months_across: usize) -> (usize, usize) {
 
 impl Panel for CalendarPanel {
     fn title(&self) -> String {
-        "Calendar".to_string()
+        "日曆".to_string()
     }
 
     fn counter(&self) -> Option<String> {

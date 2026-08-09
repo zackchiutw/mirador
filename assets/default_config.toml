@@ -187,10 +187,10 @@ date_format = "%A %d %B"     # shown under the large clock; empty hides it
 show_offset = true
 show_seconds = true          # seconds ride small beside the big HH:MM
 zones = [
-  { label = "Local",  timezone = "local" },
+  { label = "台灣當地",  timezone = "local" },
   { label = "UTC",    timezone = "UTC" },
-  { label = "London", timezone = "Europe/London" },
-  { label = "Tokyo",  timezone = "Asia/Tokyo" },
+  { label = "倫敦", timezone = "Europe/London" },
+  { label = "東京",  timezone = "Asia/Tokyo" },
 ]
 
 # ---------------------------------------------------------------------------
@@ -365,7 +365,7 @@ name = "NASA"
 url  = "https://www.nasa.gov/news-release/feed/"
 
 [[news.feeds]]
-name = "PHYS.ORG"
+name = "物理研究室"
 url  = "https://phys.org/rss-feed/space-news/"
 
 [[news.feeds]]

@@ -774,8 +774,8 @@ fn urlencode(input: &str) -> String {
 impl Panel for WeatherPanel {
     fn title(&self) -> String {
         self.with_state(|state| match &state.data {
-            Some(data) => format!("Weather — {}", data.place),
-            None => "Weather".to_string(),
+            Some(data) => format!("天氣 — {}", data.place),
+            None => "天氣".to_string(),
         })
     }
 

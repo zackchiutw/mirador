@@ -395,7 +395,7 @@ fn align_points(results: &[String], column: usize) -> Vec<String> {
 
 impl Panel for CalculatorPanel {
     fn title(&self) -> String {
-        "Calculator".to_string()
+        "計算機".to_string()
     }
 
     /// Deliberately `None`.

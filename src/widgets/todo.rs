@@ -896,7 +896,7 @@ impl TodoPanel {
 
 impl Panel for TodoPanel {
     fn title(&self) -> String {
-        "Tasks".to_string()
+        "任務".to_string()
     }
 
     fn counter(&self) -> Option<String> {

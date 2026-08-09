@@ -876,7 +876,7 @@ impl NotesPanel {
 
 impl Panel for NotesPanel {
     fn title(&self) -> String {
-        "Notes".to_string()
+        "筆記".to_string()
     }
 
     fn counter(&self) -> Option<String> {

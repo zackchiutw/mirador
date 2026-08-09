@@ -470,7 +470,7 @@ mod tests {
 
         let buf = terminal.backend().buffer();
         let top: String = (0..44).map(|x| buf[(x, 0)].symbol()).collect();
-        assert!(top.contains("Tasks"), "got: {top}");
+        assert!(top.contains("任務"), "got: {top}");
         assert!(
             top.contains("3 open"),
             "counter belongs in the frame: {top}"
