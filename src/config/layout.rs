@@ -54,20 +54,17 @@ impl Default for Layout {
                 row(
                     18,
                     &[
-                        ("pomodoro", 24),
+                        ("pomodoro", 18),
                         // 30 rather than 28 so the change column survives at
                         // 120 columns. Below a panel width of 35 the grid drops
                         // it rather than clipping a number, which is right — but
                         // "what is the portfolio doing" is one of the four
                         // questions, and the answer is the change, not the last
-                        // price. The two cells come from `cpu`, which draws a
-                        // graph and scales to whatever it is given — taking them
-                        // from `network` instead clipped its own text to
-                        // `839 B` rather than `839 B/s`, which is the very
-                        // failure being fixed, one panel over.
+                        // price.
                         ("stocks", 30),
-                        ("cpu", 20),
-                        ("network", 26),
+                        ("cpu", 16),
+                        ("memory", 16),
+                        ("network", 20),
                     ],
                 ),
             ],

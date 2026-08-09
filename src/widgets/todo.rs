@@ -11,7 +11,7 @@ use ratatui::crossterm::event::{
 };
 use ratatui::layout::{Constraint, Layout, Position, Rect};
 use ratatui::style::{Modifier, Style};
-use ratatui::text::{Line, Span};
+use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{
     Block, BorderType, Borders, Clear, List, ListItem, ListState, Paragraph, Wrap,
 };
@@ -19,7 +19,7 @@ use ratatui::widgets::{
 use crate::config::TodoConfig;
 use crate::dateinput::parse_due;
 use crate::frame::{Binding, centred};
-use crate::grid::{Column, Grid};
+use crate::grid::{Column, GUTTER, Grid};
 use crate::panel::{KeyOutcome, Panel, RenderContext};
 use crate::task::{DueState, Priority, SortMode, Task, TaskStore};
 use crate::textfield::TextField;
@@ -603,6 +603,56 @@ impl TodoPanel {
         KeyOutcome::Consumed
     }
 
+    /// Build one task as a multi-line `Text`, wrapping the title onto a second
+    /// indented row when it does not fit the column.
+    ///
+    /// The first line is the same grid row `Grid::row` has always produced.
+    /// Continuation lines carry only the title text, indented past the `done`
+    /// and `pri` columns so the wrapped text lines up under the title column
+    /// rather than under the checkbox.
+    fn task_text<'a>(&self, task: &'a Task, theme: &Theme, grid: &Grid) -> Text<'a> {
+        let first = self.task_line(task, theme, grid);
+
+        // How wide the title column is after the grid resolved it.
+        let title_width = usize::from(grid.column_width("task"));
+        if title_width <= 1 {
+            return Text::from(first);
+        }
+
+        // Wrap the raw title to the column width and keep only the overflow.
+        let wrapped = crate::grid::wrap(&task.title, title_width);
+        if wrapped.len() <= 1 {
+            return Text::from(first);
+        }
+
+        // Indent continuation lines past done + gutter + pri + gutter so they
+        // start under the title column. The marker (▸/space) is drawn by the
+        // List's `highlight_symbol`, so the indent here is on top of that.
+        let indent = " ".repeat(
+            usize::from(grid.column_width("done"))
+                + usize::from(GUTTER)
+                + usize::from(grid.column_width("pri"))
+                + usize::from(GUTTER),
+        );
+
+        let title_style = if task.done {
+            Style::default()
+                .fg(theme.muted)
+                .add_modifier(Modifier::CROSSED_OUT)
+        } else {
+            Style::default().fg(theme.text)
+        };
+
+        let mut lines = vec![first];
+        for cont in &wrapped[1..] {
+            lines.push(Line::from(Span::styled(
+                format!("{indent}{cont}"),
+                title_style,
+            )));
+        }
+        Text::from(lines)
+    }
+
     /// Build one task row against the shared column grid.
     ///
     /// Ragged rows are why a task list reads as noise: if the due date floats
@@ -1011,8 +1061,25 @@ impl Panel for TodoPanel {
                     return KeyOutcome::Ignored;
                 };
                 let at = Position::new(event.column, event.row);
+                // Compute item heights for variable-height click mapping.
+                let marker = 2u16;
+                let grid = Grid::new(COLUMNS, area.width.saturating_sub(marker));
+                let by_id: std::collections::HashMap<u64, &Task> =
+                    self.store.tasks().iter().map(|t| (t.id, t)).collect();
+                let heights: Vec<usize> = self
+                    .view
+                    .iter()
+                    .filter_map(|id| by_id.get(id).copied())
+                    .map(|task| {
+                        let title_w = usize::from(grid.column_width("task"));
+                        if title_w <= 1 {
+                            return 1;
+                        }
+                        crate::grid::wrap(&task.title, title_w).len().max(1)
+                    })
+                    .collect();
                 let Some(index) =
-                    crate::selection::row_at(&self.list_state, area, at, self.view.len())
+                    crate::selection::row_at_variable(&self.list_state, area, at, &heights)
                 else {
                     return KeyOutcome::Ignored;
                 };
@@ -1093,13 +1160,14 @@ impl Panel for TodoPanel {
 
             let items: Vec<ListItem> = visible
                 .iter()
-                .map(|task| ListItem::new(self.task_line(task, theme, &grid)))
+                .map(|task| ListItem::new(self.task_text(task, theme, &grid)))
                 .collect();
 
             // Dim the selection when the panel is not focused, so it is
             // obvious which panel the keyboard is talking to.
             let list = List::new(items)
                 .highlight_symbol(if ctx.focused { "▸ " } else { "  " })
+                .repeat_highlight_symbol(true)
                 .highlight_style(if ctx.focused {
                     Style::default()
                         .fg(theme.accent)

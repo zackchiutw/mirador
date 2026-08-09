@@ -9,6 +9,7 @@ pub mod calculator;
 pub mod calendar;
 pub mod clocks;
 pub mod cpu;
+pub mod memory;
 pub mod network;
 pub mod news;
 pub mod notes;
@@ -36,6 +37,7 @@ pub const WIDGET_NAMES: &[&str] = &[
     "watchlog",
     "news",
     "cpu",
+    "memory",
     "network",
     "calculator",
 ];
@@ -77,6 +79,7 @@ pub fn build(name: &str, config: &Config) -> Result<Option<Box<dyn Panel>>> {
         )),
         "pomodoro" => Box::new(pomodoro::PomodoroPanel::new(config.pomodoro.clone())),
         "cpu" => Box::new(cpu::CpuPanel::new(config.cpu.clone())),
+        "memory" => Box::new(memory::MemoryPanel::new(config.memory.clone())),
         "network" => Box::new(network::NetworkPanel::new(config.network.clone())),
         "calculator" => Box::new(calculator::CalculatorPanel::new(config.calculator)),
         _ => return Ok(None),

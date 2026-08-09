@@ -15,7 +15,7 @@ use ratatui::crossterm::event::{
 };
 use ratatui::layout::{Constraint, Layout, Position, Rect};
 use ratatui::style::{Modifier, Style};
-use ratatui::text::{Line, Span};
+use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{List, ListItem, ListState, Paragraph};
 
 use crate::config::NotesConfig;
@@ -570,6 +570,30 @@ impl NotesPanel {
     }
 
     /// One row of the list.
+    /// Build one note as a multi-line `Text`, wrapping the title onto a second
+    /// indented row when it does not fit the column.
+    fn note_text<'a>(&self, note: &'a Note, theme: &Theme, grid: &Grid) -> Text<'a> {
+        let first = self.note_line(note, theme, grid);
+
+        let title_width = usize::from(grid.column_width("title"));
+        if title_width <= 1 {
+            return Text::from(first);
+        }
+
+        let wrapped = crate::grid::wrap(&note.title, title_width);
+        if wrapped.len() <= 1 {
+            return Text::from(first);
+        }
+
+        let title_style = Style::default().fg(theme.text);
+
+        let mut lines = vec![first];
+        for cont in &wrapped[1..] {
+            lines.push(Line::from(Span::styled(cont.clone(), title_style)));
+        }
+        Text::from(lines)
+    }
+
     fn note_line(&self, note: &Note, theme: &Theme, grid: &Grid) -> Line<'static> {
         let date = note
             .shown_date()
@@ -994,8 +1018,25 @@ impl Panel for NotesPanel {
                 let Some(area) = self.list_area else {
                     return KeyOutcome::Ignored;
                 };
+                // Compute item heights for variable-height click mapping.
+                let marker = 2u16;
+                let grid = Grid::new(COLUMNS, area.width.saturating_sub(marker));
+                let by_id: std::collections::HashMap<u64, &Note> =
+                    self.store.notes().iter().map(|n| (n.id, n)).collect();
+                let heights: Vec<usize> = self
+                    .view
+                    .iter()
+                    .filter_map(|id| by_id.get(id).copied())
+                    .map(|note| {
+                        let title_w = usize::from(grid.column_width("title"));
+                        if title_w <= 1 {
+                            return 1;
+                        }
+                        crate::grid::wrap(&note.title, title_w).len().max(1)
+                    })
+                    .collect();
                 let Some(index) =
-                    crate::selection::row_at(&self.list_state, area, at, self.view.len())
+                    crate::selection::row_at_variable(&self.list_state, area, at, &heights)
                 else {
                     return KeyOutcome::Ignored;
                 };
@@ -1093,7 +1134,7 @@ impl Panel for NotesPanel {
                 .collect();
             let items: Vec<ListItem> = visible
                 .iter()
-                .map(|note| ListItem::new(self.note_line(note, theme, &grid)))
+                .map(|note| ListItem::new(self.note_text(note, theme, &grid)))
                 .collect();
 
             let rows_area = Rect {
@@ -1105,6 +1146,7 @@ impl Panel for NotesPanel {
 
             let list = List::new(items)
                 .highlight_symbol(if ctx.focused { "▸ " } else { "  " })
+                .repeat_highlight_symbol(true)
                 .highlight_style(if ctx.focused {
                     Style::default()
                         .fg(theme.accent)

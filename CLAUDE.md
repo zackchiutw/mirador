@@ -150,7 +150,7 @@ calc.rs      the calculator's parser: precedence, brackets, bounded depth
 docs.rs      the guard on *this file* — cited tests, version, paths, and that
              every module below is listed
 widgets/     clocks, weather, todo, notes, stocks, calendar, agenda,
-             pomodoro, watchlog, news, cpu, network, calculator
+             pomodoro, watchlog, news, cpu, memory, network, calculator
 ```
 
 `Panel` has two input hooks. `handle_key` goes to the *focused* panel;
@@ -239,7 +239,7 @@ map, that one is the procedure.
     nothing. Both are whole-panel measurements, frame and padding included.
 16. **The config is edited, never reserialised.** This is the real form of the
     "never rewrites the config" rule, which was always about comments: a round
-    trip through `toml` discards all 290 of them, including the ones mirador
+    trip through `toml` discards all 296 of them, including the ones mirador
     wrote to explain its own options. `migrate.rs` established the alternative
     and `layout_edit.rs` follows it — find the line, change that line, leave
     everything else alone. Adding a panel is a one-line diff.

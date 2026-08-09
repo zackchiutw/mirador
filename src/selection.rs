@@ -65,6 +65,39 @@ pub fn row_at(state: &ListState, area: Rect, at: Position, len: usize) -> Option
     (index < len).then_some(index)
 }
 
+/// Which item a click at `at` landed on, when items may be more than one row.
+///
+/// `heights` gives the display height of each item in list order, so a click
+/// on the second row of a two-row item maps back to that item rather than the
+/// one after it. Items before the current scroll offset are still present in
+/// the slice; the offset is used to skip them.
+pub fn row_at_variable(
+    state: &ListState,
+    area: Rect,
+    at: Position,
+    heights: &[usize],
+) -> Option<usize> {
+    if !area.contains(at) || heights.is_empty() {
+        return None;
+    }
+    let clicked_row = usize::from(at.y.saturating_sub(area.y));
+    let offset = state.offset();
+    let mut row = 0usize;
+    for (index, &h) in heights.iter().enumerate() {
+        if index < offset {
+            continue;
+        }
+        if h == 0 {
+            continue;
+        }
+        if row + h > clicked_row {
+            return Some(index);
+        }
+        row += h;
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

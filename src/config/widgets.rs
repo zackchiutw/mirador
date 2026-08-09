@@ -365,6 +365,25 @@ impl Default for CpuConfig {
     }
 }
 
+/// Memory chart settings.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct MemoryConfig {
+    /// Number of samples retained in the moving chart.
+    pub history: usize,
+    /// Seconds between samples. See [`CpuConfig::sample_secs`] for why it is 2.
+    pub sample_secs: u64,
+}
+
+impl Default for MemoryConfig {
+    fn default() -> Self {
+        Self {
+            history: 120,
+            sample_secs: 2,
+        }
+    }
+}
+
 /// Network chart settings.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default, deny_unknown_fields)]
