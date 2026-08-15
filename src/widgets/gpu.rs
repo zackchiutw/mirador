@@ -161,7 +161,7 @@ fn sample_loop(state: &Arc<Mutex<Sample>>, stop: &Arc<AtomicBool>) {
                 g.fetched_at = Some(now);
             }
         }
-        match wait(SAMPLE_INTERVAL, &stop, || false) {
+        match wait(SAMPLE_INTERVAL, stop, || false) {
             crate::poll::Wake::Stop => return,
             crate::poll::Wake::Poll => {}
         }
@@ -1007,7 +1007,7 @@ mod tests {
                         focused: true,
                         watch: &watch,
                     },
-                )
+                );
             })
             .unwrap();
 
