@@ -348,17 +348,21 @@ fn parse_intel_json(input: &str) -> Vec<Device> {
         Some(o) => o,
         None => return Vec::new(),
     };
-    // Each entry is either a per-engine map (single GPU) or another
-    // `gpu_N` map (multi GPU). We flatten one level: anything with a `busy`
-    // array is a per-engine readout; anything whose values are JSON objects
-    // is a wrapper around per-GPU entries.
+    // Two shapes, distinguished by whether the top level has `gpu_N` keys:
+    // - Multi-GPU: each entry is itself an object with `busy` inside.
+    // - Single-GPU: the top-level object IS the GPU's fields.
+    let mut had_named_gpu = false;
     let mut entries: Vec<(u32, serde_json::Value)> = Vec::new();
     for (key, val) in obj {
         if let Some(gpu_idx) = key.strip_prefix("gpu_").and_then(|s| s.parse::<u32>().ok()) {
+            had_named_gpu = true;
             entries.push((gpu_idx, val.clone()));
-        } else if val.is_object() {
-            entries.push((0, val.clone()));
         }
+    }
+    if !had_named_gpu {
+        // Single-GPU shape: top-level fields (busy / power / frequency / ...)
+        // are the GPU's own readings, with no per-GPU nesting.
+        entries.push((0, value.clone()));
     }
     entries
         .into_iter()
@@ -367,8 +371,17 @@ fn parse_intel_json(input: &str) -> Vec<Device> {
             if busy.is_empty() {
                 return None;
             }
-            let sum: f64 = busy.iter().filter_map(|n| n.as_f64()).sum();
-            let avg = (sum / busy.len() as f64) as f32;
+            // `intel_gpu_top -J` emits JSON numbers, not strings, so
+            // `as_f64()` is the path. Filter entries that don't parse
+            // rather than treating them as zero — the divisor below is the
+            // count of *parsed* entries, which is also what `filter_map`
+            // collects.
+            let parsed: Vec<f64> = busy.iter().filter_map(|n| n.as_f64()).collect();
+            if parsed.is_empty() {
+                return None;
+            }
+            let sum: f64 = parsed.iter().sum();
+            let avg = sum / parsed.len() as f64;
             let name = v
                 .get("name")
                 .and_then(|n| n.as_str())
@@ -377,10 +390,14 @@ fn parse_intel_json(input: &str) -> Vec<Device> {
             Some(Device {
                 index,
                 name,
-                util_pct: Some(avg.clamp(0.0, 100.0)),
+                // Values are already 0..=100 percentages. The clamp guards
+                // against a misbehaving driver reporting >100, and the
+                // final `.max(0.0)` after the f64→f32 cast keeps a
+                // negative zero from appearing in the panel.
+                util_pct: Some((avg.clamp(0.0, 100.0) as f32).max(0.0)),
                 vram: None,
                 temp_c: None,
-                power_w: v.get("power").and_then(|p| p.as_f64()).map(|p| p as f32),
+                power_w: v.get("power").and_then(|p| p.as_f64()).map(|p| p.max(0.0) as f32),
             })
         })
         .collect()
