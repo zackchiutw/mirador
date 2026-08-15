@@ -30,7 +30,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use ratatui::Frame;
-use ratatui::crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
+use ratatui::crossterm::event::{MouseEvent, MouseEventKind};
 use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
 use ratatui::text::Span;
@@ -49,7 +49,7 @@ const SAMPLE_INTERVAL: Duration = Duration::from_millis(1500);
 const PROBE_TIMEOUT: Duration = Duration::from_millis(2000);
 
 /// One probe's contribution to the panel.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Probe {
     /// Section header, e.g. `NVIDIA`, `INTEL/ARC`, `AMD`.
     ///
@@ -163,7 +163,7 @@ fn sample_loop(state: Arc<Mutex<Sample>>, stop: Arc<AtomicBool>) {
         }
         match wait(SAMPLE_INTERVAL, &stop, || false) {
             crate::poll::Wake::Stop => return,
-            crate::poll::Wake::Elapsed => {}
+            crate::poll::Wake::Poll => {}
         }
     }
 }
@@ -528,7 +528,7 @@ impl Panel for GpuPanel {
                         .fg(theme.accent)
                         .add_modifier(Modifier::BOLD)
                 } else {
-                    Style::default().fg(theme.fg)
+                    Style::default().fg(theme.text)
                 };
                 frame.render_widget(
                     Paragraph::new(Span::styled(line, style)),
@@ -661,7 +661,7 @@ impl GpuPanel {
         let name = truncate(&device.name, width.saturating_sub(20) as usize);
         let util = device
             .util_pct
-            .map(|v| format!("{v:>3.0f}%"))
+            .map(|v| format!("{v:>3.0}%"))
             .unwrap_or_else(|| "  —".to_string());
         let vram = device
             .vram
@@ -719,6 +719,7 @@ mod tests {
     use crate::config::Config;
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
+    use ratatui::crossterm::event::MouseButton;
 
     #[test]
     fn parses_nvidia_csv_one_line() {
