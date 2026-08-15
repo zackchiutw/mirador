@@ -53,7 +53,7 @@ check_for_updates = false
 # not cell counts, so the proportions hold at any terminal size.
 #
 # Available widgets: clocks, weather, todo, notes, stocks, calendar, agenda,
-# pomodoro, watchlog, news, cpu, memory, network, calculator
+# pomodoro, watchlog, news, cpu, memory, network, calculator, gpu
 # ---------------------------------------------------------------------------
 [layout]
 rows = [

@@ -929,6 +929,7 @@ rather than failing quietly.
 | `calculator` | Type a sum, press Enter; an adding machine's tape of what you worked out |
 | `cpu` | Average utilisation, a moving chart, and per-core meters |
 | `network` | Receive and transmit rates as moving charts |
+| `gpu` | Per-device utilisation and VRAM, auto-detected from `nvidia-smi` and friends |
 
 ### Market data
 

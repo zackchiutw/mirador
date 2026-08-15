@@ -9,6 +9,7 @@ pub mod calculator;
 pub mod calendar;
 pub mod clocks;
 pub mod cpu;
+pub mod gpu;
 pub mod memory;
 pub mod network;
 pub mod news;
@@ -40,6 +41,7 @@ pub const WIDGET_NAMES: &[&str] = &[
     "memory",
     "network",
     "calculator",
+    "gpu",
 ];
 
 /// Whether `name` refers to a widget mirador knows how to build.
@@ -82,6 +84,7 @@ pub fn build(name: &str, config: &Config) -> Result<Option<Box<dyn Panel>>> {
         "memory" => Box::new(memory::MemoryPanel::new(config.memory.clone())),
         "network" => Box::new(network::NetworkPanel::new(config.network.clone())),
         "calculator" => Box::new(calculator::CalculatorPanel::new(config.calculator)),
+        "gpu" => Box::new(gpu::GpuPanel::new()),
         _ => return Ok(None),
     };
     Ok(Some(panel))
