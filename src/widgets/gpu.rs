@@ -455,72 +455,11 @@ fn try_wmic_video() -> Option<Vec<Device>> {
     }
 }
 
-impl Panel for GpuPanel {
-    fn title(&self) -> String {
-        "GPU".to_string()
-    }
-
-    /// The number of detected probes, not devices.
-    ///
-    /// A box with one NVIDIA GPU and a hostile `radeontop` install says `1`
-    /// rather than the device count, because the probe count is what tells
-    /// the reader "this panel saw two vendors' worth of hardware".
-    fn counter(&self) -> Option<String> {
-        let probes = self.cached.probes.len();
-        if probes == 0 {
-            None
-        } else {
-            Some(format!("{probes} vendor{}", if probes == 1 { "" } else { "s" }))
-        }
-    }
-
-    /// Cheap. The 1.5s sampling cadence matches what `cargo doc` advises on
-    /// panels with a worker thread; the shell is responsible for not calling
-    /// us before the next spawn.
-    fn refresh_interval(&self) -> Duration {
-        SAMPLE_INTERVAL
-    }
-
-    /// Returns true only on a fresh sample.
-    ///
-    /// Mutating `cached` and comparing would be one extra `Vec::clone` per
-    /// sample; comparing the previously-published sample directly under the
-    /// lock keeps the total at one clone per *successful* sample.
-    fn tick(&mut self) -> bool {
-        let fresh = self.snapshot();
-        if fresh != self.cached {
-            self.cached = fresh;
-            true
-        } else {
-            false
-        }
-    }
-
-    fn render(&mut self, frame: &mut Frame, area: Rect, ctx: RenderContext<'_>) {
-        if area.height == 0 || area.width == 0 {
-            return;
-        }
-        let sample = &self.cached;
-        let empty = !sample.has_devices();
-
-        // Two line budgets: when there is content the footer shows the
-        // hovered device's extended fields, otherwise just the empty-state
-        // message.
-        if empty {
-            // Reset hover on empty so the footer never names a device the
-            // panel no longer has.
-            self.hover = None;
-        }
-        let footer_lines = if self.hover.is_some() && !empty { 2 } else { 1 };
-        let body_height = area.height.saturating_sub(footer_lines);
-
-        let body_area = Rect::new(area.x, area.y, area.width, body_height);
-        let footer_area = Rect::new(area.x, area.y + body_height, area.width, footer_lines);
-
-        self.draw_body(frame, area, body_area, sample, ctx.theme);
-        self.draw_footer(frame, footer_area, sample, footer_lines, ctx.theme);
-    }
-
+/// Render helpers — kept in their own `impl GpuPanel` block rather than
+/// `impl Panel for GpuPanel` because they are not part of the trait. `render`
+/// calls them directly to keep the method under the
+/// `clippy::too_many_lines` 100-line ceiling.
+impl GpuPanel {
     /// Draw one section header per probe and one row per device inside it.
     ///
     /// Iterates the cached sample without allocating — the only `String`s are
@@ -650,6 +589,73 @@ impl Panel for GpuPanel {
                 Rect::new(footer_area.x, footer_area.y, footer_area.width, 1),
             );
         }
+    }
+}
+
+impl Panel for GpuPanel {
+    fn title(&self) -> String {
+        "GPU".to_string()
+    }
+
+    /// The number of detected probes, not devices.
+    ///
+    /// A box with one NVIDIA GPU and a hostile `radeontop` install says `1`
+    /// rather than the device count, because the probe count is what tells
+    /// the reader "this panel saw two vendors' worth of hardware".
+    fn counter(&self) -> Option<String> {
+        let probes = self.cached.probes.len();
+        if probes == 0 {
+            None
+        } else {
+            Some(format!("{probes} vendor{}", if probes == 1 { "" } else { "s" }))
+        }
+    }
+
+    /// Cheap. The 1.5s sampling cadence matches what `cargo doc` advises on
+    /// panels with a worker thread; the shell is responsible for not calling
+    /// us before the next spawn.
+    fn refresh_interval(&self) -> Duration {
+        SAMPLE_INTERVAL
+    }
+
+    /// Returns true only on a fresh sample.
+    ///
+    /// Mutating `cached` and comparing would be one extra `Vec::clone` per
+    /// sample; comparing the previously-published sample directly under the
+    /// lock keeps the total at one clone per *successful* sample.
+    fn tick(&mut self) -> bool {
+        let fresh = self.snapshot();
+        if fresh != self.cached {
+            self.cached = fresh;
+            true
+        } else {
+            false
+        }
+    }
+
+    fn render(&mut self, frame: &mut Frame, area: Rect, ctx: RenderContext<'_>) {
+        if area.height == 0 || area.width == 0 {
+            return;
+        }
+        let sample = &self.cached;
+        let empty = !sample.has_devices();
+
+        // Two line budgets: when there is content the footer shows the
+        // hovered device's extended fields, otherwise just the empty-state
+        // message.
+        if empty {
+            // Reset hover on empty so the footer never names a device the
+            // panel no longer has.
+            self.hover = None;
+        }
+        let footer_lines = if self.hover.is_some() && !empty { 2 } else { 1 };
+        let body_height = area.height.saturating_sub(footer_lines);
+
+        let body_area = Rect::new(area.x, area.y, area.width, body_height);
+        let footer_area = Rect::new(area.x, area.y + body_height, area.width, footer_lines);
+
+        self.draw_body(frame, area, body_area, sample, ctx.theme);
+        self.draw_footer(frame, footer_area, sample, footer_lines, ctx.theme);
     }
 
     /// Hover is the only mouse input that matters here. Click is reserved
