@@ -806,7 +806,7 @@ mod tests {
         // Single-GPU shape: top-level busy / power / freq. `intel_gpu_top -J`
         // emits per-engine percentages already in the 0..=100 range, so the
         // average stays where it is.
-        let raw = r#"{"period_ms":100.0,"rc6":0.0,"frequency":1300.0,"power":7.5,"busy":["25.0","75.0","50.0","0.0"]}"#;
+        let raw = r#"{"period_ms":100.0,"rc6":0.0,"frequency":1300.0,"power":7.5,"busy":[25.0,75.0,50.0,0.0]}"#;
         let devices = parse_intel_json(raw);
         assert_eq!(devices.len(), 1);
         assert_eq!(devices[0].util_pct, Some(37.5));
@@ -815,7 +815,7 @@ mod tests {
 
     #[test]
     fn parses_intel_json_multi_gpu() {
-        let raw = r#"{"gpu_0":{"busy":["50.0","50.0"]},"gpu_1":{"busy":["0.0","0.0"]}}"#;
+        let raw = r#"{"gpu_0":{"busy":[50.0,50.0]},"gpu_1":{"busy":[0.0,0.0]}}"#;
         let devices = parse_intel_json(raw);
         assert_eq!(devices.len(), 2);
         assert_eq!(devices[0].util_pct, Some(50.0));
