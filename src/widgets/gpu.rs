@@ -932,7 +932,7 @@ mod tests {
 
     #[test]
     fn click_is_ignored_so_focus_can_stay() {
-        let panel = GpuPanel::new();
+        let mut panel = GpuPanel::new();
         let area = Rect::new(0, 0, 20, 5);
         let event = MouseEvent {
             kind: MouseEventKind::Down(MouseButton::Left),
