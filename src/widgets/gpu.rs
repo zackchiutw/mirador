@@ -740,7 +740,7 @@ mod tests {
     use crate::config::Config;
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
-    use ratatui::crossterm::event::MouseButton;
+    use ratatui::crossterm::event::{KeyModifiers, MouseButton};
 
     #[test]
     fn parses_nvidia_csv_one_line() {
@@ -907,7 +907,7 @@ mod tests {
             kind: MouseEventKind::Moved,
             column: 0,
             row: 1,
-            modifiers: Default::default(),
+            modifiers: KeyModifiers::NONE,
         };
         let _ = panel.handle_mouse(event, area);
         // Whether any probes are present depends on the machine, so we do
@@ -923,7 +923,7 @@ mod tests {
             kind: MouseEventKind::Moved,
             column: 0,
             row: 0,
-            modifiers: Default::default(),
+            modifiers: KeyModifiers::NONE,
         };
         let outcome = panel.handle_mouse(event, area);
         assert_eq!(outcome, crate::panel::KeyOutcome::Ignored);
@@ -938,7 +938,7 @@ mod tests {
             kind: MouseEventKind::Down(MouseButton::Left),
             column: 1,
             row: 1,
-            modifiers: Default::default(),
+            modifiers: KeyModifiers::NONE,
         };
         let outcome = panel.handle_mouse(event, area);
         assert_eq!(outcome, crate::panel::KeyOutcome::Ignored);
