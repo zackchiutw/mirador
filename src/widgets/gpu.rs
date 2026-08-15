@@ -786,17 +786,19 @@ mod tests {
 
     #[test]
     fn parses_intel_json_one_gpu() {
-        // Single-GPU shape: top-level busy / power / freq.
-        let raw = r#"{"period_ms":100.0,"rc6":0.0,"frequency":1300.0,"power":7.5,"busy":["1.0","0.0","0.0","0.0"]}"#;
+        // Single-GPU shape: top-level busy / power / freq. `intel_gpu_top -J`
+        // emits per-engine percentages already in the 0..=100 range, so the
+        // average stays where it is.
+        let raw = r#"{"period_ms":100.0,"rc6":0.0,"frequency":1300.0,"power":7.5,"busy":["25.0","75.0","50.0","0.0"]}"#;
         let devices = parse_intel_json(raw);
         assert_eq!(devices.len(), 1);
-        assert_eq!(devices[0].util_pct, Some(25.0));
+        assert_eq!(devices[0].util_pct, Some(37.5));
         assert_eq!(devices[0].power_w, Some(7.5));
     }
 
     #[test]
     fn parses_intel_json_multi_gpu() {
-        let raw = r#"{"gpu_0":{"busy":["1.0","0.0"]},"gpu_1":{"busy":["0.0","0.0"]}}"#;
+        let raw = r#"{"gpu_0":{"busy":["50.0","50.0"]},"gpu_1":{"busy":["0.0","0.0"]}}"#;
         let devices = parse_intel_json(raw);
         assert_eq!(devices.len(), 2);
         assert_eq!(devices[0].util_pct, Some(50.0));
@@ -828,9 +830,11 @@ mod tests {
         // would corrupt the row — `chars()` would not, but a naive byte
         // truncation would panic. Pin the cell-budget behaviour here so the
         // fix stays put.
+        // Cells: 機=2, 器=2, 之=2, 心=2, G=1, P=1, U=1 (11 cells total).
         let s = "機器之心GPU";
-        assert_eq!(truncate(s, 4), "機器");
-        assert_eq!(truncate(s, 6), "機器心");
+        assert_eq!(truncate(s, 4), "機器");    // 2 chars, 4 cells
+        assert_eq!(truncate(s, 6), "機器之");   // 3 chars, 6 cells
+        assert_eq!(truncate(s, 11), s);         // fits whole
     }
 
     #[test]
