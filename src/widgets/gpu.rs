@@ -294,10 +294,12 @@ fn parse_nvidia_csv(input: &str) -> Vec<Device> {
             let mut parts = line.split(',');
             let index = parts.next()?.trim().parse().ok()?;
             let name = parts.next()?.trim().to_string();
-            let util = parse_number(parts.next().unwrap_or("").trim()).map(|v: f32| v.clamp(0.0, 100.0));
+            let util =
+                parse_number(parts.next().unwrap_or("").trim()).map(|v: f32| v.clamp(0.0, 100.0));
             let mem_used = parse_number::<u64>(parts.next().unwrap_or("").trim());
             let mem_total = parse_number::<u64>(parts.next().unwrap_or("").trim());
-            let temp = parse_number(parts.next().unwrap_or("").trim()).map(|v: f32| v.clamp(0.0, 200.0));
+            let temp =
+                parse_number(parts.next().unwrap_or("").trim()).map(|v: f32| v.clamp(0.0, 200.0));
             let power = parse_number(parts.next().unwrap_or("").trim()).map(|v: f32| v.max(0.0));
             Some(Device {
                 index,
@@ -317,7 +319,11 @@ fn parse_nvidia_csv(input: &str) -> Vec<Device> {
 /// Parse a value that may be `N/A`, `[Not Supported]`, or `[N/A]`. None of
 /// those are numbers; everything else goes through the typed parse.
 fn parse_number<T: std::str::FromStr>(s: &str) -> Option<T> {
-    if s.is_empty() || s.contains('[') || s.eq_ignore_ascii_case("n/a") || s.eq_ignore_ascii_case("not supported") {
+    if s.is_empty()
+        || s.contains('[')
+        || s.eq_ignore_ascii_case("n/a")
+        || s.eq_ignore_ascii_case("not supported")
+    {
         return None;
     }
     s.parse().ok()
@@ -343,7 +349,9 @@ fn parse_intel_json(input: &str) -> Vec<Device> {
         Ok(v) => v,
         Err(_) => return Vec::new(),
     };
-    let Some(obj) = value.as_object() else { return Vec::new() };
+    let Some(obj) = value.as_object() else {
+        return Vec::new();
+    };
     // Two shapes, distinguished by whether the top level has `gpu_N` keys:
     // - Multi-GPU: each entry is itself an object with `busy` inside.
     // - Single-GPU: the top-level object IS the GPU's fields.
@@ -372,10 +380,7 @@ fn parse_intel_json(input: &str) -> Vec<Device> {
             // rather than treating them as zero — the divisor below is the
             // count of *parsed* entries, which is also what `filter_map`
             // collects.
-            let parsed: Vec<f64> = busy
-                .iter()
-                .filter_map(serde_json::Value::as_f64)
-                .collect();
+            let parsed: Vec<f64> = busy.iter().filter_map(serde_json::Value::as_f64).collect();
             if parsed.is_empty() {
                 return None;
             }
@@ -533,8 +538,8 @@ impl GpuPanel {
         }
         // Body may be empty (no probes yet, or none detected) — leave a
         // single-line hint when there is room above the footer.
-        let no_probes = sample.probes.is_empty()
-            || sample.probes.iter().all(|p| p.devices.is_empty());
+        let no_probes =
+            sample.probes.is_empty() || sample.probes.iter().all(|p| p.devices.is_empty());
         if no_probes && body_area.height > 0 {
             frame.render_widget(
                 Paragraph::new(Span::styled(
@@ -557,9 +562,10 @@ impl GpuPanel {
         footer_lines: u16,
         theme: &crate::theme::Theme,
     ) {
-        let freshness = sample
-            .fetched_at
-            .map_or_else(|| "never sampled".to_string(), |at| crate::panel::describe_age(at.elapsed()));
+        let freshness = sample.fetched_at.map_or_else(
+            || "never sampled".to_string(),
+            |at| crate::panel::describe_age(at.elapsed()),
+        );
         let empty_label = !sample.has_devices() || sample.probes.is_empty();
         let footer_style = if empty_label {
             Style::default().fg(theme.warning)
@@ -612,7 +618,10 @@ impl Panel for GpuPanel {
         if probes == 0 {
             None
         } else {
-            Some(format!("{probes} vendor{}", if probes == 1 { "" } else { "s" }))
+            Some(format!(
+                "{probes} vendor{}",
+                if probes == 1 { "" } else { "s" }
+            ))
         }
     }
 
@@ -715,9 +724,10 @@ impl GpuPanel {
         let util = device
             .util_pct
             .map_or_else(|| "  —".to_string(), |v| format!("{v:>3.0}%"));
-        let vram = device
-            .vram
-            .map_or_else(|| "—".to_string(), |(used, total)| format_vram_fraction(used, total));
+        let vram = device.vram.map_or_else(
+            || "—".to_string(),
+            |(used, total)| format_vram_fraction(used, total),
+        );
         format!("{idx} {name}  {util}  {vram}")
     }
 
@@ -862,9 +872,9 @@ mod tests {
         // fix stays put.
         // Cells: 機=2, 器=2, 之=2, 心=2, G=1, P=1, U=1 (11 cells total).
         let s = "機器之心GPU";
-        assert_eq!(truncate(s, 4), "機器");    // 2 chars, 4 cells
-        assert_eq!(truncate(s, 6), "機器之");   // 3 chars, 6 cells
-        assert_eq!(truncate(s, 11), s);         // fits whole
+        assert_eq!(truncate(s, 4), "機器"); // 2 chars, 4 cells
+        assert_eq!(truncate(s, 6), "機器之"); // 3 chars, 6 cells
+        assert_eq!(truncate(s, 11), s); // fits whole
     }
 
     #[test]
