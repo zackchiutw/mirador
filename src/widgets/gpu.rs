@@ -120,7 +120,7 @@ impl GpuPanel {
         let worker_stop = Arc::clone(&stop);
         std::thread::Builder::new()
             .name("mirador-gpu".into())
-            .spawn(move || sample_loop(worker_state, worker_stop))
+            .spawn(move || sample_loop(&worker_state, &worker_stop))
             .expect("spawning the gpu thread");
         Self {
             state,
@@ -146,7 +146,7 @@ impl Default for GpuPanel {
 }
 
 /// The worker. Polls, sleeps, polls again. Exits when the stop flag is set.
-fn sample_loop(state: Arc<Mutex<Sample>>, stop: Arc<AtomicBool>) {
+fn sample_loop(state: &Arc<Mutex<Sample>>, stop: &Arc<AtomicBool>) {
     loop {
         let probes = collect();
         let now = Instant::now();
@@ -229,15 +229,14 @@ fn collect() -> Vec<Probe> {
 /// than the timeout. Returns `None` on any failure: missing binary,
 /// non-zero exit, hang past the timeout, or non-UTF-8 stdout.
 fn run_capture(cmd: &str, args: &[&str]) -> Option<String> {
-    let mut child = match std::process::Command::new(cmd)
+    let Ok(mut child) = std::process::Command::new(cmd)
         .args(args)
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::null())
         .spawn()
-    {
-        Ok(c) => c,
-        Err(_) => return None,
+    else {
+        return None;
     };
     let start = std::time::Instant::now();
     let poll_slice = Duration::from_millis(50);
@@ -344,10 +343,7 @@ fn parse_intel_json(input: &str) -> Vec<Device> {
         Ok(v) => v,
         Err(_) => return Vec::new(),
     };
-    let obj = match value.as_object() {
-        Some(o) => o,
-        None => return Vec::new(),
-    };
+    let Some(obj) = value.as_object() else { return Vec::new() };
     // Two shapes, distinguished by whether the top level has `gpu_N` keys:
     // - Multi-GPU: each entry is itself an object with `busy` inside.
     // - Single-GPU: the top-level object IS the GPU's fields.
@@ -501,7 +497,6 @@ impl Panel for GpuPanel {
     }
 
     fn render(&mut self, frame: &mut Frame, area: Rect, ctx: RenderContext<'_>) {
-        let theme = ctx.theme;
         if area.height == 0 || area.width == 0 {
             return;
         }
@@ -517,15 +512,31 @@ impl Panel for GpuPanel {
             self.hover = None;
         }
         let footer_lines = if self.hover.is_some() && !empty { 2 } else { 1 };
-        let body_height = area.height.saturating_sub(footer_lines).max(0);
+        let body_height = area.height.saturating_sub(footer_lines);
 
         let body_area = Rect::new(area.x, area.y, area.width, body_height);
         let footer_area = Rect::new(area.x, area.y + body_height, area.width, footer_lines);
 
-        // Body: section per probe, one row per device.
+        self.draw_body(frame, area, body_area, sample, ctx.theme);
+        self.draw_footer(frame, footer_area, sample, footer_lines, ctx.theme);
+    }
+
+    /// Draw one section header per probe and one row per device inside it.
+    ///
+    /// Iterates the cached sample without allocating — the only `String`s are
+    /// the row bodies built by [`Self::compose_device_line`] and the section
+    /// labels, both of which already exist on the panel.
+    fn draw_body(
+        &self,
+        frame: &mut Frame,
+        area: Rect,
+        body_area: Rect,
+        sample: &Sample,
+        theme: &crate::theme::Theme,
+    ) {
         let mut y = area.y;
         for (probe_idx, probe) in sample.probes.iter().enumerate() {
-            if y >= area.y + body_height {
+            if y >= area.y + body_area.height {
                 break;
             }
             let label = crate::glyphs::utility(&probe.label);
@@ -540,10 +551,10 @@ impl Panel for GpuPanel {
             );
             y += 1;
             for (device_idx, device) in probe.devices.iter().enumerate() {
-                if y >= area.y + body_height {
+                if y >= area.y + body_area.height {
                     break;
                 }
-                let mut line = self.compose_device_line(device, area.width);
+                let mut line = Self::compose_device_line(device, area.width);
                 // Truncate the final composed line to the panel width — the
                 // parts formula adds up to more than `area.width` at narrow
                 // sizes, and invariant 19 says anything dropped is dropped
@@ -577,17 +588,9 @@ impl Panel for GpuPanel {
         }
         // Body may be empty (no probes yet, or none detected) — leave a
         // single-line hint when there is room above the footer.
-        if sample.probes.is_empty() && body_height > 0 {
-            // No probes surveyed yet. The worker is still alive; the empty
-            // state gives way on the first sample.
-            frame.render_widget(
-                Paragraph::new(Span::styled(
-                    "no GPU detected",
-                    Style::default().fg(theme.muted),
-                )),
-                body_area,
-            );
-        } else if sample.probes.iter().all(|p| p.devices.is_empty()) && body_height > 0 {
+        let no_probes = sample.probes.is_empty()
+            || sample.probes.iter().all(|p| p.devices.is_empty());
+        if no_probes && body_area.height > 0 {
             frame.render_widget(
                 Paragraph::new(Span::styled(
                     "no GPU detected",
@@ -596,15 +599,23 @@ impl Panel for GpuPanel {
                 body_area,
             );
         }
+    }
 
-        // Footer: at most two lines. The first carries the hovered-device
-        // detail (when one is shown); the second always carries the freshness
-        // message and the empty-state warning.
+    /// Draw the one or two-line footer: the hovered device's extended fields
+    /// (when one is shown), and the freshness + empty-state warning that the
+    /// rest of the panel relies on for context.
+    fn draw_footer(
+        &self,
+        frame: &mut Frame,
+        footer_area: Rect,
+        sample: &Sample,
+        footer_lines: u16,
+        theme: &crate::theme::Theme,
+    ) {
         let freshness = sample
             .fetched_at
-            .map(|at| crate::panel::describe_age(at.elapsed()))
-            .unwrap_or_else(|| "never sampled".to_string());
-        let empty_label = empty || sample.probes.is_empty();
+            .map_or_else(|| "never sampled".to_string(), |at| crate::panel::describe_age(at.elapsed()));
+        let empty_label = !sample.has_devices() || sample.probes.is_empty();
         let footer_style = if empty_label {
             Style::default().fg(theme.warning)
         } else {
@@ -615,7 +626,6 @@ impl Panel for GpuPanel {
         } else {
             format!("sampled {freshness} ago")
         };
-
         if footer_lines == 2 {
             if let Some((probe_idx, device_idx)) = self.hover {
                 if let Some(device) = sample
@@ -623,7 +633,7 @@ impl Panel for GpuPanel {
                     .get(probe_idx)
                     .and_then(|p| p.devices.get(device_idx))
                 {
-                    let detail = self.compose_device_detail(device, area.width);
+                    let detail = Self::compose_device_detail(device, footer_area.width);
                     frame.render_widget(
                         Paragraph::new(Span::styled(detail, Style::default().fg(theme.accent))),
                         Rect::new(footer_area.x, footer_area.y, footer_area.width, 1),
@@ -632,12 +642,7 @@ impl Panel for GpuPanel {
             }
             frame.render_widget(
                 Paragraph::new(Span::styled(footer_text, footer_style)),
-                Rect::new(
-                    footer_area.x,
-                    footer_area.y + 1,
-                    footer_area.width,
-                    1,
-                ),
+                Rect::new(footer_area.x, footer_area.y + 1, footer_area.width, 1),
             );
         } else {
             frame.render_widget(
@@ -694,21 +699,19 @@ impl GpuPanel {
     /// for invariant 19: nothing wider than the area. The separator sits at
     /// the front of each part so a drop-from-end never leaves a dangling
     /// bullet.
-    fn compose_device_line(&self, device: &Device, width: u16) -> String {
+    fn compose_device_line(device: &Device, width: u16) -> String {
         let idx = device.index;
         let name = truncate(&device.name, width.saturating_sub(20) as usize);
         let util = device
             .util_pct
-            .map(|v| format!("{v:>3.0}%"))
-            .unwrap_or_else(|| "  —".to_string());
+            .map_or_else(|| "  —".to_string(), |v| format!("{v:>3.0}%"));
         let vram = device
             .vram
-            .map(|(used, total)| format_vram_fraction(used, total))
-            .unwrap_or_else(|| "—".to_string());
+            .map_or_else(|| "—".to_string(), |(used, total)| format_vram_fraction(used, total));
         format!("{idx} {name}  {util}  {vram}")
     }
 
-    fn compose_device_detail(&self, device: &Device, width: u16) -> String {
+    fn compose_device_detail(device: &Device, width: u16) -> String {
         let mut parts: Vec<String> = Vec::new();
         if let Some(t) = device.temp_c {
             parts.push(format!("{t:.0}°C"));
@@ -904,7 +907,7 @@ mod tests {
         let worker_stop = Arc::clone(&stop);
         let handle = std::thread::Builder::new()
             .name("mirador-gpu-test".into())
-            .spawn(move || sample_loop(worker_state, worker_stop))
+            .spawn(move || sample_loop(&worker_state, &worker_stop))
             .expect("spawning the gpu test thread");
         // Give the worker time to take its first sample. Then ask it to
         // stop, so the test does not leak a thread.
