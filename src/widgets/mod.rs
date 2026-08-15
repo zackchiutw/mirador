@@ -35,7 +35,6 @@ pub const WIDGET_NAMES: &[&str] = &[
     "calendar",
     "agenda",
     "pomodoro",
-    "watchlog",
     "news",
     "cpu",
     "memory",

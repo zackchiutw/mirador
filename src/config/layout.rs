@@ -39,10 +39,10 @@ impl Default for Layout {
             rows: vec![
                 row(26, &[("clocks", 26), ("calendar", 34), ("weather", 40)]),
                 row(32, &[("todo", 34), ("agenda", 30), ("notes", 36)]),
-                // The reading row. Both of these want width for prose rather
-                // than columns of numbers, which is why they get a row instead
-                // of being squeezed in beside the lists — and why the default
-                // is four rows now rather than three.
+                // The reading row. `news` and `calculator` want width for prose
+                // rather than columns of numbers, which is why they get a row
+                // instead of being squeezed in beside the lists — and why the
+                // default is four rows now rather than three.
                 // The calculator sits here rather than on the instrument row
                 // below, and the reason is arithmetic rather than taste: a
                 // fifth panel in that row takes `stocks` from 36 cells to 30 at
@@ -50,7 +50,11 @@ impl Default for Layout {
                 // 1.1.2 went to some trouble to save. Prose gives way more
                 // gracefully than a table does — these two wrap, where a
                 // dropped column is a fact the reader no longer has.
-                row(24, &[("news", 42), ("watchlog", 34), ("calculator", 32)]),
+                // The third slot in this row used to be `watchlog`; it is now
+                // the GPU panel, which is a list of devices with util % and
+                // VRAM — table-shaped like the instrument row, but fitting
+                // here because there's room without crowding stocks.
+                row(24, &[("news", 42), ("gpu", 34), ("calculator", 32)]),
                 row(
                     18,
                     &[

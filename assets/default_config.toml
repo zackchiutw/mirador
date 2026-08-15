@@ -76,9 +76,11 @@ rows = [
   # beside the lists.
   { height = 24, panels = [
     { widget = "news",     width = 42 },
-    # What happened while you were not looking. Empty most of the time, which
-    # is the point.
-    { widget = "watchlog", width = 34 },
+    # Per-device utilisation and VRAM, auto-detected from `nvidia-smi`
+    # (Linux + Windows) and `intel_gpu_top` / `radeontop` (Linux only).
+    # Empty on machines without a vendor CLI, showing a "no GPU detected"
+    # line in the footer.
+    { widget = "gpu",      width = 34 },
     # Type a sum, press Enter. It sits on this row rather than beside the
     # markets panel because a fifth panel down there would narrow `stocks`
     # below the width its change column needs.
