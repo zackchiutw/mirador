@@ -46,7 +46,7 @@ const SAMPLE_INTERVAL: Duration = Duration::from_millis(1500);
 
 /// Per-probe timeout. `nvidia-smi` is normally sub-100ms; the budget is
 /// generous because a flaky driver can hang indefinitely.
-const PROBE_TIMEOUT: Duration = Duration::from_millis(2000);
+const PROBE_TIMEOUT: Duration = Duration::from_secs(2);
 
 /// One probe's contribution to the panel.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -372,7 +372,10 @@ fn parse_intel_json(input: &str) -> Vec<Device> {
             // rather than treating them as zero — the divisor below is the
             // count of *parsed* entries, which is also what `filter_map`
             // collects.
-            let parsed: Vec<f64> = busy.iter().filter_map(|n| n.as_f64()).collect();
+            let parsed: Vec<f64> = busy
+                .iter()
+                .filter_map(serde_json::Value::as_f64)
+                .collect();
             if parsed.is_empty() {
                 return None;
             }
@@ -393,7 +396,10 @@ fn parse_intel_json(input: &str) -> Vec<Device> {
                 util_pct: Some((avg.clamp(0.0, 100.0) as f32).max(0.0)),
                 vram: None,
                 temp_c: None,
-                power_w: v.get("power").and_then(|p| p.as_f64()).map(|p| p.max(0.0) as f32),
+                power_w: v
+                    .get("power")
+                    .and_then(serde_json::Value::as_f64)
+                    .map(|p| p.max(0.0) as f32),
             })
         })
         .collect()
@@ -566,18 +572,17 @@ impl GpuPanel {
             format!("sampled {freshness} ago")
         };
         if footer_lines == 2 {
-            if let Some((probe_idx, device_idx)) = self.hover {
-                if let Some(device) = sample
+            if let Some((probe_idx, device_idx)) = self.hover
+                && let Some(device) = sample
                     .probes
                     .get(probe_idx)
                     .and_then(|p| p.devices.get(device_idx))
-                {
-                    let detail = Self::compose_device_detail(device, footer_area.width);
-                    frame.render_widget(
-                        Paragraph::new(Span::styled(detail, Style::default().fg(theme.accent))),
-                        Rect::new(footer_area.x, footer_area.y, footer_area.width, 1),
-                    );
-                }
+            {
+                let detail = Self::compose_device_detail(device, footer_area.width);
+                frame.render_widget(
+                    Paragraph::new(Span::styled(detail, Style::default().fg(theme.accent))),
+                    Rect::new(footer_area.x, footer_area.y, footer_area.width, 1),
+                );
             }
             frame.render_widget(
                 Paragraph::new(Span::styled(footer_text, footer_style)),
@@ -625,12 +630,11 @@ impl Panel for GpuPanel {
     /// lock keeps the total at one clone per *successful* sample.
     fn tick(&mut self) -> bool {
         let fresh = self.snapshot();
-        if fresh != self.cached {
+        let changed = !fresh.eq(&self.cached);
+        if changed {
             self.cached = fresh;
-            true
-        } else {
-            false
         }
+        changed
     }
 
     fn render(&mut self, frame: &mut Frame, area: Rect, ctx: RenderContext<'_>) {
