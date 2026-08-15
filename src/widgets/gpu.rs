@@ -223,26 +223,47 @@ fn collect() -> Vec<Probe> {
     probes
 }
 
-/// Run a command to completion and capture its stdout.
-///
-/// Returns `None` for any failure: the binary missing, a non-zero exit, or a
-/// non-UTF-8 output. The first two are the common case on a machine without
-/// the vendor tool installed.
+/// Run a command to completion and capture its stdout, with a wall-clock
+/// bound of [`PROBE_TIMEOUT`]. A subprocess that the vendor CLI's driver
+/// hangs on is killed here, so the worker thread is never blocked longer
+/// than the timeout. Returns `None` on any failure: missing binary,
+/// non-zero exit, hang past the timeout, or non-UTF-8 stdout.
 fn run_capture(cmd: &str, args: &[&str]) -> Option<String> {
-    let output = std::process::Command::new(cmd)
+    let mut child = match std::process::Command::new(cmd)
         .args(args)
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::null())
-        .output();
-    let output = match output {
-        Ok(o) => o,
+        .spawn()
+    {
+        Ok(c) => c,
         Err(_) => return None,
     };
-    if !output.status.success() {
-        return None;
+    let start = std::time::Instant::now();
+    let poll_slice = Duration::from_millis(50);
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                let mut buf = Vec::new();
+                if let Some(mut stdout) = child.stdout.take() {
+                    let _ = std::io::Read::read_to_end(&mut stdout, &mut buf);
+                }
+                if !status.success() {
+                    return None;
+                }
+                return Some(String::from_utf8_lossy(&buf).into_owned());
+            }
+            Ok(None) => {
+                if start.elapsed() >= PROBE_TIMEOUT {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return None;
+                }
+                std::thread::sleep(poll_slice);
+            }
+            Err(_) => return None,
+        }
     }
-    Some(String::from_utf8_lossy(&output.stdout).into_owned())
 }
 
 fn try_nvidia_smi() -> Option<Vec<Device>> {
